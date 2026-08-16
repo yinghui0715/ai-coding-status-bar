@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build release configuration
+        run: swift build -c release
+
+      - name: Build an ad-hoc Universal 2 package
+        run: scripts/build-release.sh
+
+      - name: Verify architectures
+        run: lipo -archs "dist/AI Coding Status Bar.app/Contents/MacOS/AICodingStatusBar"

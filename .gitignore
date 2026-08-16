@@ -1,0 +1,23 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+dist/
+*.dmg
+*.zip
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Keep only anonymized screenshots in the public repository.
+article-assets/*
+!article-assets/final-dashboard-all-projects-english.png
+!article-assets/initial-dashboard-english.jpg
+
+# Signing and notarization material must never be committed.
+*.cer
+*.p12
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
