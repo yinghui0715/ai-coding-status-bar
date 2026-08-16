@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.1.1] - 2026-08-16
+
+- Fixed unsigned GitHub Release packaging by disabling notarization in the ad-hoc build path.
+
 ## [1.1.0] - 2026-08-16
 
 - Added cross-project active tasks and recent conversations.
