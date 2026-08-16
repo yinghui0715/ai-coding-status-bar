@@ -27,7 +27,7 @@ This produces an ad-hoc signed package and must not be presented as a trusted pu
 
 ## GitHub Actions secrets
 
-Configure these repository secrets before pushing a `v*` tag:
+For a signed and notarized release, configure these repository secrets before pushing a `v*` tag:
 
 - `BUILD_CERTIFICATE_BASE64`
 - `P12_PASSWORD`
@@ -36,7 +36,9 @@ Configure these repository secrets before pushing a `v*` tag:
 - `APPLE_API_KEY_ID`
 - `APPLE_API_ISSUER_ID`
 
-The Release workflow imports the temporary certificate, configures `notarytool`, builds the packages and creates a GitHub Release using the tagged version.
+When all secrets are present, the Release workflow imports the temporary certificate, configures `notarytool`, builds the packages and creates a trusted GitHub Release using the tagged version.
+
+When the signing secrets are absent, the same workflow creates an **Unsigned Beta** prerelease with ad-hoc signed ZIP and DMG files. This fallback is suitable for early testers, but macOS may require Right-click > Open or approval in Privacy & Security.
 
 ## Verification
 

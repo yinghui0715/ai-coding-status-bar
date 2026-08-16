@@ -13,9 +13,7 @@ jobs:
     runs-on: macos-15
     env:
       NOTARY_PROFILE: ai-coding-status-bar-ci
-      KEYCHAIN_PATH: ${{ runner.temp }}/release.keychain-db
-      CERTIFICATE_PATH: ${{ runner.temp }}/developer-id.p12
-      API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+      HAS_SIGNING: ${{ secrets.BUILD_CERTIFICATE_BASE64 != '' && secrets.P12_PASSWORD != '' && secrets.DEVELOPER_ID_APPLICATION != '' && secrets.APPLE_API_KEY_P8_BASE64 != '' && secrets.APPLE_API_KEY_ID != '' && secrets.APPLE_API_ISSUER_ID != '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -29,11 +27,14 @@ jobs:
         run: swift test
 
       - name: Import Developer ID certificate
+        if: env.HAS_SIGNING == 'true'
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/release.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
           printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 -D > "$CERTIFICATE_PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -43,11 +44,13 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
       - name: Configure notarization
+        if: env.HAS_SIGNING == 'true'
         env:
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
+          API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 -D > "$API_KEY_PATH"
           xcrun notarytool store-credentials "$NOTARY_PROFILE" \
             --key "$API_KEY_PATH" \
@@ -55,15 +58,23 @@ jobs:
             --issuer "$APPLE_API_ISSUER_ID"
 
       - name: Build signed and notarized packages
+        if: env.HAS_SIGNING == 'true'
         env:
           SIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
         run: scripts/build-release.sh
 
-      - name: Verify release
+      - name: Build ad-hoc signed beta packages
+        if: env.HAS_SIGNING != 'true'
+        run: scripts/build-release.sh
+
+      - name: Verify package signatures and checksums
         run: |
           codesign --verify --deep --strict --verbose=2 "dist/AI Coding Status Bar.app"
-          spctl --assess --type execute --verbose=2 "dist/AI Coding Status Bar.app"
           (cd dist && shasum -a 256 -c SHA256SUMS.txt)
+
+      - name: Verify notarized release with Gatekeeper
+        if: env.HAS_SIGNING == 'true'
+        run: spctl --assess --type execute --verbose=2 "dist/AI Coding Status Bar.app"
 
       - name: Publish GitHub Release
         env:
@@ -71,12 +82,17 @@ jobs:
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt --clobber
-          else
+          elif [[ "$HAS_SIGNING" == "true" ]]; then
             gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt \
               --generate-notes \
               --title "AI Coding Status Bar $GITHUB_REF_NAME"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt \
+              --prerelease \
+              --title "AI Coding Status Bar $GITHUB_REF_NAME (Unsigned Beta)" \
+              --notes "This beta uses an ad-hoc signature because Apple Developer signing secrets are not configured. macOS may require Right-click > Open or approval in Privacy & Security."
           fi
 
       - name: Delete temporary keychain
-        if: always()
-        run: security delete-keychain "$KEYCHAIN_PATH" || true
+        if: always() && env.HAS_SIGNING == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/release.keychain-db" || true

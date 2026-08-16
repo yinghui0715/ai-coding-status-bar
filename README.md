@@ -31,7 +31,7 @@
 2. 将 **AI Coding Status Bar.app** 拖入 `/Applications`。
 3. 首次打开后，应用会自动索引本机 Codex Session。
 
-正式 Release 应使用 Developer ID 签名并通过 Apple Notarization。未签名的开发构建可能被 Gatekeeper 阻止，不建议提供给普通用户。
+标记为 **Unsigned Beta** 的版本使用 ad-hoc 签名，首次打开时可能需要右键应用并选择“打开”，或在“系统设置 → 隐私与安全性”中允许。配置 Apple Developer 签名后，正式 Release 会自动签名并通过 Apple Notarization。
 
 ## 从源码构建
 
